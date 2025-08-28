@@ -320,7 +320,7 @@ class Navigation2DEnv:
         obstacle_cost, _ = self._obstacle_map.compute_cost(pos_batch, inital_state)
         obstacle_cost = obstacle_cost.squeeze(1)  # (batch_size,)
 
-        cost = goal_cost + 10000 * obstacle_cost
+        cost = 0.1 * goal_cost + 10000 * obstacle_cost
 
         return cost
 
