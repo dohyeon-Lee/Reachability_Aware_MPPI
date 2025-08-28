@@ -13,12 +13,16 @@ import matplotlib.patches as patches
 import torch
 import numpy as np
 import os
-
+import yaml
 
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from src.envs.obstacle_map_2d import ObstacleMap, generate_random_obstacles
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+setting_path = os.path.join(BASE_DIR, 'setting.yaml')
+with open(setting_path) as f:
+    param = yaml.full_load(f)
 
 @torch.jit.script
 def angle_normalize(x):
@@ -45,9 +49,9 @@ class Navigation2DEnv:
             obstacle_map=self._obstacle_map,
             random_x_range=(-(30-4), (30-4)),
             random_y_range=(-7.5, 7.5),
-            num_circle_obs=10,
+            num_circle_obs=param['num_circle_obs'],
             radius_range=(1, 3),
-            num_rectangle_obs=10,
+            num_rectangle_obs=param['num_rectangle_obs'],
             width_range=(2, 5),
             height_range=(2, 5),
             max_iteration=1000,
@@ -72,8 +76,8 @@ class Navigation2DEnv:
         )
 
         # u: [v, omega] (m/s, rad/s)
-        self.u_min = torch.tensor([0.0, -1.0], device=self._device, dtype=self._dtype)
-        self.u_max = torch.tensor([10.0, 1.0], device=self._device, dtype=self._dtype)
+        self.u_min = torch.tensor(param['u_min'], device=self._device, dtype=self._dtype)
+        self.u_max = torch.tensor(param['u_max'], device=self._device, dtype=self._dtype)
 
     def reset(self) -> torch.Tensor:
         """
