@@ -1,6 +1,10 @@
-# u: [v, omega] (m/s, rad/s)
-u_max: [10.0, 5.0]
-u_min: [0.0, -5.0]
+# u: [acc, steering] (m/s^2, rad)
+u_max: [2.0, 0.2]
+u_min: [-2.0, -0.2]
 
-num_circle_obs: 13 
-num_rectangle_obs: 13
+# v : velocity (m/s)
+v_max: 15.0
+
+range: 5
+num_circle_obs: 15 
+num_rectangle_obs: 15

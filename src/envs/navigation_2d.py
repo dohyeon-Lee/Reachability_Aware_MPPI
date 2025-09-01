@@ -41,7 +41,7 @@ class Navigation2DEnv:
         self._dtype = dtype
 
         self._obstacle_map = ObstacleMap(
-            map_size=(60, 20), cell_size=0.1, device=self._device, dtype=self._dtype, detect_range=6.0
+            map_size=(60, 20), cell_size=0.1, device=self._device, dtype=self._dtype, detect_range=param['range']
         )
         self._seed = seed
 
@@ -66,7 +66,7 @@ class Navigation2DEnv:
             [28.0, 0.0], device=self._device, dtype=self._dtype
         )
 
-        self._robot_state = torch.zeros(3, device=self._device, dtype=self._dtype)
+        self._robot_state = torch.zeros(4, device=self._device, dtype=self._dtype)
         self._robot_state[:2] = self._start_pos
         self._robot_state[2] = angle_normalize(
             torch.atan2(
@@ -74,16 +74,23 @@ class Navigation2DEnv:
                 self._goal_pos[0] - self._start_pos[0],
             )
         )
+        self._robot_state[3] = 0
 
         # u: [v, omega] (m/s, rad/s)
+        # self.u_min = torch.tensor(param['u_min'], device=self._device, dtype=self._dtype)
+        # self.u_max = torch.tensor(param['u_max'], device=self._device, dtype=self._dtype)
+        # u: [accel, steer] (m/s2, rad)
+
         self.u_min = torch.tensor(param['u_min'], device=self._device, dtype=self._dtype)
         self.u_max = torch.tensor(param['u_max'], device=self._device, dtype=self._dtype)
+        self.L = torch.tensor(1, device=self._device, dtype=self._dtype)
+        self.V_MAX = torch.tensor(param['v_max'], device=self._device, dtype=self._dtype)
 
     def reset(self) -> torch.Tensor:
         """
         Reset robot state.
         Returns:
-            torch.Tensor: shape (3,) [x, y, theta]
+            torch.Tensor: shape (4,) [x, y, theta, vel]
         """
         self._robot_state[:2] = self._start_pos
         self._robot_state[2] = angle_normalize(
@@ -92,6 +99,7 @@ class Navigation2DEnv:
                 self._goal_pos[0] - self._start_pos[0],
             )
         )
+        self._robot_state[3] = 0
 
         self._fig = plt.figure(layout="tight")
         self._ax = self._fig.add_subplot()
@@ -127,6 +135,7 @@ class Navigation2DEnv:
 
     def render(
         self,
+        state: torch.Tensor = None,
         predicted_trajectory: torch.Tensor = None,
         is_collisions: torch.Tensor = None,
         is_robot_collision: torch.Tensor = None,
@@ -169,6 +178,32 @@ class Navigation2DEnv:
             zorder=100,
         )
 
+
+        # visualize sensory range
+        circle = patches.Circle((state[0].cpu().numpy(), state[1].cpu().numpy()),
+            radius=self._obstacle_map._detect_range,
+            edgecolor="black",
+            facecolor="none",
+            linestyle="--",
+            linewidth=0.5,
+            zorder=100)                         
+        self._ax.add_patch(circle)  
+
+        # visualize collision occur
+        if is_robot_collision is not None:
+            if is_robot_collision[0] > 0:
+                circle = patches.Circle((state[0].cpu().numpy(), state[1].cpu().numpy()),
+                    radius=self._obstacle_map._detect_range/2,
+                    edgecolor="red",
+                    facecolor="red",
+                    linewidth=2,
+                    zorder=100)                         
+                self._ax.add_patch(circle) 
+
+        # display velocity information
+        velocity_disp = f"vel: {state[3]:.2f}"
+        self._ax.text(35, 6, velocity_disp, fontsize=12, color='blue')
+
         # visualize top samples with different alpha based on weights
         if top_samples is not None:
             top_samples, top_weights = top_samples
@@ -187,27 +222,6 @@ class Navigation2DEnv:
 
         # predicted trajectory
         if predicted_trajectory is not None:
-            
-            # visualize sensory range
-            circle = patches.Circle((predicted_trajectory[0, 0, 0].cpu().numpy(), predicted_trajectory[0, 0, 1].cpu().numpy()),
-                        radius=self._obstacle_map._detect_range,
-                        edgecolor="black",
-                        facecolor="none",
-                        linestyle="--",
-                        linewidth=0.5,
-                        zorder=100)                         
-            self._ax.add_patch(circle)  
-
-            # visualize collision occur
-            if is_robot_collision is not None:
-                if is_robot_collision[0] > 0:
-                    circle = patches.Circle((predicted_trajectory[0, 0, 0].cpu().numpy(), predicted_trajectory[0, 0, 1].cpu().numpy()),
-                                radius=self._obstacle_map._detect_range/2,
-                                edgecolor="red",
-                                facecolor="red",
-                                linewidth=2,
-                                zorder=100)                         
-                    self._ax.add_patch(circle) 
 
             # if is collision color is red
             colors = np.array(["darkblue"] * predicted_trajectory.shape[1])
@@ -263,14 +277,53 @@ class Navigation2DEnv:
             # clip.write_videofile(path, fps=10)
             clip.write_gif(path, fps=10)
 
+    # def dynamics(
+    #     self, state: torch.Tensor, action: torch.Tensor, delta_t: float = 0.1
+    # ) -> torch.Tensor:
+    #     """
+    #     Update robot state based on differential drive dynamics.
+    #     Args:
+    #         state (torch.Tensor): state batch tensor, shape (batch_size, 3) [x, y, theta]
+    #         action (torch.Tensor): control batch tensor, shape (batch_size, 2) [v, omega]
+    #         delta_t (float): time step interval [s]
+    #     Returns:
+    #         torch.Tensor: shape (batch_size, 3) [x, y, theta]
+    #     """
+
+    #     # Perform calculations as before
+    #     x = state[:, 0].view(-1, 1)
+    #     y = state[:, 1].view(-1, 1)
+    #     theta = state[:, 2].view(-1, 1)
+    #     v = torch.clamp(action[:, 0].view(-1, 1), self.u_min[0], self.u_max[0])
+    #     omega = torch.clamp(action[:, 1].view(-1, 1), self.u_min[1], self.u_max[1])
+    #     theta = angle_normalize(theta)
+
+    #     new_x = x + v * torch.cos(theta) * delta_t
+    #     new_y = y + v * torch.sin(theta) * delta_t
+    #     new_theta = angle_normalize(theta + omega * delta_t)
+
+    #     # Clamp x and y to the map boundary
+    #     x_lim = torch.tensor(
+    #         self._obstacle_map.x_lim, device=self._device, dtype=self._dtype
+    #     )
+    #     y_lim = torch.tensor(
+    #         self._obstacle_map.y_lim, device=self._device, dtype=self._dtype
+    #     )
+    #     clamped_x = torch.clamp(new_x, x_lim[0], x_lim[1])
+    #     clamped_y = torch.clamp(new_y, y_lim[0], y_lim[1])
+
+    #     result = torch.cat([clamped_x, clamped_y, new_theta], dim=1)
+
+    #     return result
+
     def dynamics(
         self, state: torch.Tensor, action: torch.Tensor, delta_t: float = 0.1
     ) -> torch.Tensor:
         """
         Update robot state based on differential drive dynamics.
         Args:
-            state (torch.Tensor): state batch tensor, shape (batch_size, 3) [x, y, theta]
-            action (torch.Tensor): control batch tensor, shape (batch_size, 2) [v, omega]
+            state (torch.Tensor): state batch tensor, shape (batch_size, 3) [x, y, theta, v]
+            action (torch.Tensor): control batch tensor, shape (batch_size, 2) [accel, steer]
             delta_t (float): time step interval [s]
         Returns:
             torch.Tensor: shape (batch_size, 3) [x, y, theta]
@@ -280,13 +333,20 @@ class Navigation2DEnv:
         x = state[:, 0].view(-1, 1)
         y = state[:, 1].view(-1, 1)
         theta = state[:, 2].view(-1, 1)
-        v = torch.clamp(action[:, 0].view(-1, 1), self.u_min[0], self.u_max[0])
-        omega = torch.clamp(action[:, 1].view(-1, 1), self.u_min[1], self.u_max[1])
+        v = state[:, 3].view(-1, 1)
+        accel = torch.clamp(action[:, 0].view(-1, 1), self.u_min[0], self.u_max[0])
+        steer = torch.clamp(action[:, 1].view(-1, 1), self.u_min[1], self.u_max[1])
         theta = angle_normalize(theta)
 
-        new_x = x + v * torch.cos(theta) * delta_t
-        new_y = y + v * torch.sin(theta) * delta_t
-        new_theta = angle_normalize(theta + omega * delta_t)
+        dx = v * torch.cos(theta)
+        dy = v * torch.sin(theta)
+        dv = accel
+        dtheta = v * torch.tan(steer) / self.L
+
+        new_x = x + dx * delta_t
+        new_y = y + dy * delta_t
+        new_theta = angle_normalize(theta + dtheta * delta_t)
+        new_v = v + dv * delta_t
 
         # Clamp x and y to the map boundary
         x_lim = torch.tensor(
@@ -297,8 +357,10 @@ class Navigation2DEnv:
         )
         clamped_x = torch.clamp(new_x, x_lim[0], x_lim[1])
         clamped_y = torch.clamp(new_y, y_lim[0], y_lim[1])
+        clamped_v = torch.clamp(new_v, -self.V_MAX, self.V_MAX)
 
-        result = torch.cat([clamped_x, clamped_y, new_theta], dim=1)
+
+        result = torch.cat([clamped_x, clamped_y, new_theta, clamped_v], dim=1)
 
         return result
 
@@ -319,6 +381,9 @@ class Navigation2DEnv:
         inital_state = info["initial_state"]
         obstacle_cost, _ = self._obstacle_map.compute_cost(pos_batch, inital_state)
         obstacle_cost = obstacle_cost.squeeze(1)  # (batch_size,)
+
+        vel = state[:,3]
+        velocity_cost = (vel - 4).pow(2)
 
         cost = 0.1 * goal_cost + 10000 * obstacle_cost
 

@@ -200,13 +200,15 @@ class ObstacleMap:
         
         range_occ = ((x_occ[...,0] - inital_x_occ[0]) ** 2 + (x_occ[...,1] - inital_x_occ[1]) ** 2)**0.5
         is_out_of_range = (range_occ >= detect_range_occ)
+        
         # collision check
         collisions = self._map_torch[x_occ[..., 0], x_occ[..., 1]]
+        # out of bound cost -> assuming it is closed space
+        collisions[is_out_of_bound] = 1.0
+        
         range_render = collisions.detach().clone()
         # out of sensory range -> assuming it is open space
         collisions[is_out_of_range] = 0.0
-        # out of bound cost -> assuming it is closed space
-        collisions[is_out_of_bound] = 1.0
         # out of sensory range 
         range_render[is_out_of_range] = 1.0 
 
