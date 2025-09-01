@@ -41,29 +41,29 @@ class Navigation2DEnv:
         self._dtype = dtype
 
         self._obstacle_map = ObstacleMap(
-            map_size=(60, 20), cell_size=0.1, device=self._device, dtype=self._dtype, detect_range=param['range']
+            map_size=(param['map_size'], param['map_size']), cell_size=0.1, device=self._device, dtype=self._dtype, detect_range=param['range']
         )
         self._seed = seed
 
         generate_random_obstacles(
             obstacle_map=self._obstacle_map,
-            random_x_range=(-(30-4), (30-4)),
-            random_y_range=(-7.5, 7.5),
+            random_x_range=(-(param['map_size']/2-4), (param['map_size']/2-4)),
+            random_y_range=(-(param['map_size']/2-4), (param['map_size']/2-4)),
             num_circle_obs=param['num_circle_obs'],
-            radius_range=(1, 3),
+            radius_range=(5, 15),
             num_rectangle_obs=param['num_rectangle_obs'],
-            width_range=(2, 5),
-            height_range=(2, 5),
+            width_range=(10, 15),
+            height_range=(10, 15),
             max_iteration=1000,
             seed=seed,
         )
         self._obstacle_map.convert_to_torch()
 
         self._start_pos = torch.tensor(
-            [-28.0, 0.0], device=self._device, dtype=self._dtype
+            [0.0, 0.0], device=self._device, dtype=self._dtype
         )
         self._goal_pos = torch.tensor(
-            [28.0, 0.0], device=self._device, dtype=self._dtype
+            [param['map_size']/2, param['map_size']/2], device=self._device, dtype=self._dtype
         )
 
         self._robot_state = torch.zeros(4, device=self._device, dtype=self._dtype)
@@ -374,7 +374,7 @@ class Navigation2DEnv:
             torch.Tensor: shape (batch_size,)
         """
         
-        goal_cost = torch.norm(state[:, :2] - self._goal_pos, dim=1)
+        #goal_cost = torch.norm(state[:, :2] - self._goal_pos, dim=1)
 
         pos_batch = state[:, :2].unsqueeze(1)  # (batch_size, 1, 2)
         
@@ -383,9 +383,9 @@ class Navigation2DEnv:
         obstacle_cost = obstacle_cost.squeeze(1)  # (batch_size,)
 
         vel = state[:,3]
-        velocity_cost = (vel - 4).pow(2)
+        velocity_cost = (vel - param["target_v"]).pow(2)
 
-        cost = 0.1 * goal_cost + 10000 * obstacle_cost
+        cost = 1 * velocity_cost + 10000 * obstacle_cost
 
         return cost
 

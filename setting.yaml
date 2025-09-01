@@ -3,8 +3,10 @@ u_max: [2.0, 0.2]
 u_min: [-2.0, -0.2]
 
 # v : velocity (m/s)
-v_max: 15.0
+v_max: 30.0
+target_v: 10
 
 range: 5
-num_circle_obs: 15 
-num_rectangle_obs: 15
+map_size: 120
+num_circle_obs: 50 
+num_rectangle_obs: 50
