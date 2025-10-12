@@ -8,7 +8,7 @@ from typing import Callable, Tuple, Dict
 import torch
 import torch.nn as nn
 from torch.distributions.multivariate_normal import MultivariateNormal
-
+from src.dynamics.bicycle_like_dynamics import Bicycle_Dynamics
 
 class MPPI(nn.Module):
     """
@@ -162,7 +162,9 @@ class MPPI(nn.Module):
                 )
             )
             self.optimizer = torch.optim.Adam([self.log_tempature], lr=1e-2)
-
+        
+        self.D = Bicycle_Dynamics()
+        self.u_ref = None
     def reset(self):
         """
         Reset the previous action sequence.
@@ -210,6 +212,8 @@ class MPPI(nn.Module):
         self._perturbed_action_seqs = torch.clamp(
             self._perturbed_action_seqs, self._u_min, self._u_max
         )
+        _, u_ref = self.D.spectral_expansion(self._horizon, state.unsqueeze(0), self._perturbed_action_seqs[0,:,:])
+        self.u_ref = u_ref
 
         # rollout samples in parallel
         self._state_seq_batch[:, 0, :] = state.repeat(self._num_samples, 1)
@@ -266,7 +270,7 @@ class MPPI(nn.Module):
         costs = (
             torch.sum(costs, dim=1)
             + terminal_costs
-            # + torch.sum(self._lambda * action_costs, dim=1)
+            #+ torch.sum(self._lambda * action_costs, dim=1) # TODO
         )
 
         # calculate weights
@@ -350,6 +354,9 @@ class MPPI(nn.Module):
         )
 
         return optimal_action_seq, optimal_state_seq
+
+    def get_spectral_expansion(self):
+        return self.u_ref
 
     def get_top_samples(self, num_samples: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """

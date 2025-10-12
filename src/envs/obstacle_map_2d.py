@@ -11,6 +11,12 @@ from matplotlib import pyplot as plt
 import torch
 import numpy as np
 
+from src.envs.lane_map_2d import LaneMap
+from src.envs.circuit_generator.path_generate import make_side_lane, make_csv_paths, make_csv_simple_path
+
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+setting_csv_path = os.path.join(BASE_DIR, 'src/envs/circuit_generator/path.csv')
 
 @dataclass
 class CircleObstacle:
@@ -66,6 +72,19 @@ class ObstacleMap:
         else:
             self._device = torch.device("cpu")
         self._dtype = dtype
+
+        # racing_center_path, _, _ = make_csv_paths(setting_csv_path)
+        racing_center_path = make_csv_simple_path(setting_csv_path)
+        self.line_width = 6.5
+
+        self._lane_map = LaneMap(
+            lane=racing_center_path,
+            lane_width=self.line_width*0.8,
+            map_size=map_size,
+            cell_size=cell_size,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
         assert len(map_size) == 2
         assert cell_size > 0
@@ -201,8 +220,12 @@ class ObstacleMap:
         range_occ = ((x_occ[...,0] - inital_x_occ[0]) ** 2 + (x_occ[...,1] - inital_x_occ[1]) ** 2)**0.5
         is_out_of_range = (range_occ >= detect_range_occ)
         
+        
+        #collisions[is_out_of_range] = 0.0
         # collision check
-        collisions = self._map_torch[x_occ[..., 0], x_occ[..., 1]]
+        collisions = self._lane_map._map_torch[x_occ[..., 0], x_occ[..., 1]]
+        collisions += self._map_torch[x_occ[..., 0], x_occ[..., 1]]
+        # collisions = self._map_torch[x_occ[..., 0], x_occ[..., 1]]
         # out of bound cost -> assuming it is closed space
         collisions[is_out_of_bound] = 1.0
         

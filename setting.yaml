@@ -1,12 +1,14 @@
 # u: [acc, steering] (m/s^2, rad)
-u_max: [2.0, 0.2]
-u_min: [-2.0, -0.2]
+u_max: [10.0, 0.34]
+u_min: [-10.0, -0.34]
 
 # v : velocity (m/s)
 v_max: 30.0
-target_v: 10
+target_v: 8
+# w : rad/s
+w_max: 1
 
-range: 5
-map_size: 120
-num_circle_obs: 50 
-num_rectangle_obs: 50
+range: 20
+map_size: 80
+num_circle_obs: 0 
+num_rectangle_obs: 0 #60

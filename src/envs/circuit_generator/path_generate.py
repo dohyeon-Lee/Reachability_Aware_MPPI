@@ -8,6 +8,49 @@ from typing import Tuple
 
 from src.envs.circuit_generator.utils import plot_arrow
 
+def make_csv_simple_path(csv_file: str, DL=0.1, offset=True) -> np.ndarray:
+    df = pd.read_csv(csv_file)
+    # offset
+    if offset:
+        x_offset = df['x_m'].mean()
+        y_offset = df['y_m'].mean()
+    else:
+        x_offset = 0
+        y_offset = 0
+    
+    # circuit path
+    circuit_path = df[['x_m', 'y_m']].to_numpy()
+    circuit_path[:, 0] -= x_offset
+    circuit_path[:, 1] -= y_offset
+
+    # interpolate paths
+    circuit_path = interpolate_path(circuit_path, DL)
+    # calculate angles
+    def calculate_angles(path: np.ndarray) -> np.ndarray:
+        # calculate initial direction vector
+        # initial_direction_vector = np.array([path[0, 0] - path[-1, 0], path[0, 1] - path[-1, 1]])
+        initial_direction_vector = np.array([path[1, 0] - path[0, 0], path[1, 1] - path[0, 1]])
+        norm = np.linalg.norm(initial_direction_vector)
+        if norm != 0:
+            initial_direction_vector = initial_direction_vector / norm
+        else:
+            initial_direction_vector = np.array([1, 0])  # if norm is zero, default direction vector
+        
+        # calculate initial angle
+        initial_angle = np.arctan2(initial_direction_vector[1], initial_direction_vector[0])
+        
+        road_diff = path[1:] - path[:-1]
+        road_angle = np.arctan2(road_diff[:, 1], road_diff[:, 0])
+        road_angle = np.concatenate(([initial_angle], road_angle))
+        
+        road = np.concatenate((path, road_angle[:, np.newaxis]), axis=1)
+        
+        return road
+        
+    circuit_path = calculate_angles(circuit_path)
+    
+    return circuit_path
+
 def make_csv_paths(csv_file: str, DL=0.1, offset=True) -> np.ndarray:
     """make_csv_paths
     Input parameters:
