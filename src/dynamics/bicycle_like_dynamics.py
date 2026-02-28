@@ -182,7 +182,9 @@ class Bicycle_Dynamics:
 
     def spectral_expansion(self, step_size, state_, inputs):
         inital_state = state_
-        input_max_energy = self.u_max
+        # input_scale_energy = self.u_max
+        # input_scale_energy = torch.Tensor([1,1])
+        input_scale_energy = torch.Tensor([2 / (self.u_max[0] - self.u_min[0]), 2 / (self.u_max[1] - self.u_min[1])])
         A_list = []
         C_list = []
         B_scaled_list = []
@@ -193,7 +195,7 @@ class Bicycle_Dynamics:
             self.linearized_state_space(state_,input_)
             A_list.append(self.A)
             C_list.append(self.C)
-            B_scaled = self.B @ torch.diag(input_max_energy)
+            B_scaled = self.B @ torch.diag(input_scale_energy)
             B_scaled_list.append(B_scaled)
             state_ = self.dynamics(state_,input_)
 
@@ -221,7 +223,9 @@ class Bicycle_Dynamics:
 
         C_energy_inv = torch.linalg.pinv(C_energy)
         u_ref = C_energy_inv.real @ z.real
-
+        print(u_ref.shape)
+        # u_seq = u_ref[:,i].reshape(step_size, 2)
+        # u_seq_clamp = torch.clamp(u_seq, self.u_min, self.u_max)
         return vec, u_ref
     
 

@@ -207,12 +207,11 @@ class MPPI(nn.Module):
         self._perturbed_action_seqs = torch.cat(
             [inherited_samples, self._action_noises[threshold:]]
         )
-
         # clamp actions
         self._perturbed_action_seqs = torch.clamp(
             self._perturbed_action_seqs, self._u_min, self._u_max
         )
-        _, u_ref = self.D.spectral_expansion(self._horizon, state.unsqueeze(0), self._perturbed_action_seqs[0,:,:])
+        _, u_ref = self.D.spectral_expansion(self._horizon, state.unsqueeze(0), mean_action_seq) #self._perturbed_action_seqs[0,:,:])
         self.u_ref = u_ref
 
         # rollout samples in parallel

@@ -76,7 +76,7 @@ class Navigation2DEnv:
             random_x_range=(-(param['map_size']/2-4), (param['map_size']/2-4)),
             random_y_range=(-(param['map_size']/2-4), (param['map_size']/2-4)),
             num_circle_obs=param['num_circle_obs'],
-            radius_range=(1, 5),
+            radius_range=(0.5, 1.5),
             num_rectangle_obs=param['num_rectangle_obs'],
             width_range=(2, 2),
             height_range=(2, 2),
@@ -328,9 +328,15 @@ class Navigation2DEnv:
             state_seq[0,:] = inital_state
             for t in range(step_size):
                 u_seq_clamp = torch.clamp(u_seq[t,:], self._bicycle_dynamics.u_min, self._bicycle_dynamics.u_max)
-                u_seq_clamp = u_seq[t,:]
-                next_state = self._bicycle_dynamics.linearized_forward(state, u_seq_clamp.unsqueeze(0)) # D.dynamics(state, u_seq[t,:].unsqueeze(0))
-                next_state = next_state.unsqueeze(0)
+                # u_seq_clamp = u_seq[t,:]
+                
+                # compute with original dynamics
+                next_state = self._bicycle_dynamics.dynamics(state, u_seq_clamp.unsqueeze(0))  
+                
+                # compute with linearlized dynamics
+                # self._bicycle_dynamics.linearized_forward(state, u_seq_clamp.unsqueeze(0)) 
+                # next_state = next_state.unsqueeze(0)
+                
                 state_seq[t + 1, :] = next_state
                 state = next_state
 
